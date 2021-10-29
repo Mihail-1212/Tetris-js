@@ -99,10 +99,6 @@
     // Getting array of keys
     this.tetraminoSequence = Object.keys(TETRAMINO_GRID);
 
-    this.currentTetramino = null;
-
-    this.nextTetraminoType = this.generateAndReturnNextTetraminoType();;
-
     this.gameState = STATE_READY_TO_START;  // enum
 
     this.rAF = null;
@@ -110,16 +106,6 @@
     this.canvasTetrisInfo = null;
 
     this.canvasTetrisInfoContext = null;
-
-    this.frameNum = 0;
-
-    this.scoreCount = 0;
-
-    this.playField = new Array(TETRIS_HEIGHT / SQUARE_SIZE);
-
-    for (let i=0; i < this.playField.length; i++) {
-      this.playField[i] = new Array(TETRIS_WIDTH / SQUARE_SIZE).fill(0);
-    }
 
     this.init();
   }
@@ -133,12 +119,27 @@
     this.canvas.setAttribute("width", TETRIS_WIDTH);
     this.canvas.setAttribute("height", TETRIS_HEIGHT);
 
-    // Remove pause if exist
-    this.canvas.classList.remove('pause');
+    this.initPrimaryTetrisData();
 
     this.initCanvasTetrisInfo();
     
     this.setEventListeners();
+  }
+
+  Tetris.prototype.initPrimaryTetrisData = function() {
+    this.currentTetramino = null;
+
+    this.nextTetraminoType = this.generateAndReturnNextTetraminoType();
+
+    this.frameNum = 0;
+
+    this.scoreCount = 0;
+
+    this.playField = new Array(TETRIS_HEIGHT / SQUARE_SIZE);
+
+    for (let i=0; i < this.playField.length; i++) {
+      this.playField[i] = new Array(TETRIS_WIDTH / SQUARE_SIZE).fill(0);
+    }
   }
   
 
@@ -192,7 +193,7 @@
 
     this.canvasTetrisInfoContext.font = `${fontSize}px serif`;
 
-    this.canvasTetrisInfoContext.fillText(`Best score: ${this.scoreCount}`, SQUARE_SIZE, 7*SQUARE_SIZE); // 7 row is best score row
+    this.canvasTetrisInfoContext.fillText(`Best score: ${scoreCount}`, SQUARE_SIZE, 7*SQUARE_SIZE); // 7 row is best score row
   }
 
   Tetris.prototype.renderCanvasTetrisInfoScore = function() {
@@ -408,9 +409,19 @@
   }
 
 
-  // Tetris.prototype.restartGame = function() {
+  Tetris.prototype.restartGame = function() {
+    // Stop game 
+    this.pauseGame();
 
-  // }
+    // Remove pause if exist
+    this.canvas.classList.remove('pause');
+
+    // Set start data for tetris
+    this.initPrimaryTetrisData();
+
+    // Run game
+    this.startGame();
+  }
 
 
   Tetris.prototype.pauseOrResumeGame = function() {
@@ -464,7 +475,7 @@
     // Black rectangle in center
     this.canvasContext.fillStyle = 'black';
     this.canvasContext.globalAlpha = 0.75;
-    this.canvasContext.fillRect(0, this.canvas.height / 2 - 30, this.canvas.width, 60);
+    this.canvasContext.fillRect(0, this.canvas.height / 2 - 30, this.canvas.width, 85);
     
     // Game over message
     var finalMessage = "GAME OVER!";
@@ -476,6 +487,17 @@
 
     this.canvasContext.font = "36px serif";
     this.canvasContext.fillText(finalMessage, this.canvas.width / 2, this.canvas.height / 2);
+
+    // Additive message for help
+    var additiveMessage = "Press \"Esc\" to restart.";
+
+    this.canvasContext.globalAlpha = 1;
+    this.canvasContext.fillStyle = 'white';
+    this.canvasContext.textAlign = 'center';
+    this.canvasContext.textBaseline = 'middle';
+
+    this.canvasContext.font = "24px serif";
+    this.canvasContext.fillText(additiveMessage, this.canvas.width / 2, this.canvas.height / 2 + 36);
   }
 
 
@@ -569,7 +591,7 @@
     }
 
     if (e.keyCode == '27') {
-      console.log('restart!');
+      this.restartGame();
     }
   }
 
@@ -609,7 +631,7 @@
   function setCookie(name, value, options = {}) {
     options = {
       path: '/',
-      // при необходимости добавьте другие значения по умолчанию
+      // Additive options
       ...options
     };
   
@@ -626,7 +648,6 @@
         updatedCookie += "=" + optionValue;
       }
     }
-  
     document.cookie = updatedCookie;
   }
 
