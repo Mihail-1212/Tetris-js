@@ -22,3 +22,7 @@ canvas.tetris-info {
   left: 50%;
   top: 50%;
 }
+
+canvas.pause {
+  border: 1px dashed #e74c3c;
+}

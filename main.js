@@ -9,11 +9,13 @@
   const TETRIS_HEIGHT = 640;  // 20 squares
 
   const TETRIS_INFO_WIDTH = 192; // 6 squares
-  const TETRIS_INFO_HEIGHT = 320; // 10 squares
+  const TETRIS_INFO_HEIGHT = 256; // 8 squares
 
   const SQUARE_SIZE = 32;
 
   const FRAME_NUM_UPDATE = 35;
+
+  const BEST_SCORE_COOKIE = "BEST_SCORE_COOKIE";
 
   const STATE_READY_TO_START = 'STATE_READY_TO_START',
     STATE_RESUME = 'TETRIS_RESUME',
@@ -131,6 +133,9 @@
     this.canvas.setAttribute("width", TETRIS_WIDTH);
     this.canvas.setAttribute("height", TETRIS_HEIGHT);
 
+    // Remove pause if exist
+    this.canvas.classList.remove('pause');
+
     this.initCanvasTetrisInfo();
     
     this.setEventListeners();
@@ -172,6 +177,22 @@
 
     // Render score count
     this.renderCanvasTetrisInfoScore();
+
+    // Render top score
+    this.renderCanvasTetrisInfoTopScore(this.getTopScoreAndSetBest());
+  }
+
+  Tetris.prototype.renderCanvasTetrisInfoTopScore = function(scoreCount) {
+    this.canvasTetrisInfoContext.globalAlpha = 1;
+    this.canvasTetrisInfoContext.fillStyle = 'white';
+    this.canvasTetrisInfoContext.textAlign = 'left';
+    this.canvasTetrisInfoContext.textBaseline = 'middle';
+
+    var fontSize = 14;
+
+    this.canvasTetrisInfoContext.font = `${fontSize}px serif`;
+
+    this.canvasTetrisInfoContext.fillText(`Best score: ${this.scoreCount}`, SQUARE_SIZE, 7*SQUARE_SIZE); // 7 row is best score row
   }
 
   Tetris.prototype.renderCanvasTetrisInfoScore = function() {
@@ -184,7 +205,7 @@
 
     this.canvasTetrisInfoContext.font = `${fontSize}px serif`;
 
-    this.canvasTetrisInfoContext.fillText(`Score: ${this.scoreCount}`, SQUARE_SIZE, 6*SQUARE_SIZE); // 6 row always empty
+    this.canvasTetrisInfoContext.fillText(`Score: ${this.scoreCount}`, SQUARE_SIZE, 6*SQUARE_SIZE); // 6 row is current score row
   }
 
   Tetris.prototype.renderCanvasTetrisInfoTitle = function() {
@@ -226,13 +247,9 @@
   Tetris.prototype.startGame = function() {
     // Start loop
     this.rAF = requestAnimationFrame(this.mainLoop.bind(this));
+
+    this.gameState = STATE_RESUME;
   }
-
-  // Tetris.prototype.renderNext
-
-  // Tetris.prototype.resumeGame = function() {
-    
-  // }
 
 
   /**
@@ -390,11 +407,34 @@
     this.nextTetraminoType = this.generateAndReturnNextTetraminoType();
   }
 
+
+  // Tetris.prototype.restartGame = function() {
+
+  // }
+
+
+  Tetris.prototype.pauseOrResumeGame = function() {
+    if (this.gameState == STATE_PAUSE) {
+      this.resumeGame();
+      this.canvas.classList.remove('pause');
+    } else if(this.gameState == STATE_RESUME) {
+      this.pauseGame();
+
+      this.canvas.classList.add('pause');
+    }
+  }
+
   Tetris.prototype.pauseGame = function() {
     cancelAnimationFrame(this.rAF);
 
     this.gameState = STATE_PAUSE;
   }
+
+
+  Tetris.prototype.resumeGame = function() {
+    this.startGame();
+  }
+
 
   Tetris.prototype.endGame = function() {
     cancelAnimationFrame(this.rAF);
@@ -404,6 +444,19 @@
     this.renderTatraminoObj(this.currentTetramino);
   }
 
+
+  /**
+   * Return top score from cookies
+   * @returns 
+   */
+  Tetris.prototype.getTopScoreAndSetBest = function() {
+    var bestScore = getCookie(BEST_SCORE_COOKIE) || 0;
+
+    bestScore = Math.max(bestScore, this.scoreCount); 
+
+    setCookie(BEST_SCORE_COOKIE, bestScore);
+    return bestScore;
+  }
 
   Tetris.prototype.showEndGameMessage = function() {
     this.endGame();
@@ -474,39 +527,49 @@
 
     var newTetramino = Object.assign({}, this.currentTetramino);
 
-    if (e.keyCode == '38') {
+
+    if ((e.keyCode == '38' || e.key == 'w') && this.gameState == STATE_RESUME) {
+      // rotate tetramino
       var newRotationState = this.currentTetramino.rotationState + 1;
       if (newRotationState > 3) {
         newRotationState = 0;
       }
       newTetramino.rotationState = newRotationState;
 
-      // up arrow
       if (this.currentTetramino && this.isValidTetramino(newTetramino)) {
         this.updateCurrentTetraminoObj(newTetramino);
       }
     }
-    if (e.keyCode == '40') {
-        // down arrow
+
+    if ((e.keyCode == '40' || e.key == 's') && this.gameState == STATE_RESUME ) {
+        // go down tetramino
         newTetramino.row++;
         if (this.currentTetramino) {
           this.updateCurrentTetraminoObj(newTetramino);
         }
     }
 
-    if (e.keyCode == '37') {
-      // left arrow
+    if ((e.keyCode == '37' || e.key == 'a') && this.gameState == STATE_RESUME) {
+      // go left tetramino
       newTetramino.column--;
       if (this.currentTetramino && this.isValidTetramino(newTetramino)) {
         this.updateCurrentTetraminoObj(newTetramino);
       }
     }
-    if (e.keyCode == '39') {
-        // right arrow
+    if ((e.keyCode == '39' || e.key == 'd') && this.gameState == STATE_RESUME) {
+        // go right tetramino
         newTetramino.column++;
         if (this.currentTetramino && this.isValidTetramino(newTetramino)) {
           this.updateCurrentTetraminoObj(newTetramino);
         }
+    }
+
+    if (e.keyCode == '32') {
+      this.pauseOrResumeGame();
+    }
+
+    if (e.keyCode == '27') {
+      console.log('restart!');
     }
   }
 
@@ -522,6 +585,50 @@
   ///
   /// Funcs
   ///
+
+  /**
+   * Get cookie by name
+   * https://learn.javascript.ru/cookie
+   * @param {String} name 
+   * @returns Object
+   */
+  function getCookie(name) {
+    let matches = document.cookie.match(new RegExp(
+      "(?:^|; )" + name.replace(/([\.$?*|{}\(\)\[\]\\\/\+^])/g, '\\$1') + "=([^;]*)"
+    ));
+    return matches ? decodeURIComponent(matches[1]) : undefined;
+  }
+
+  /**
+   * Set cookie value with name
+   * https://learn.javascript.ru/cookie
+   * @param {*} name 
+   * @param {*} value 
+   * @param {*} options 
+   */
+  function setCookie(name, value, options = {}) {
+    options = {
+      path: '/',
+      // при необходимости добавьте другие значения по умолчанию
+      ...options
+    };
+  
+    if (options.expires instanceof Date) {
+      options.expires = options.expires.toUTCString();
+    }
+  
+    let updatedCookie = encodeURIComponent(name) + "=" + encodeURIComponent(value);
+  
+    for (let optionKey in options) {
+      updatedCookie += "; " + optionKey;
+      let optionValue = options[optionKey];
+      if (optionValue !== true) {
+        updatedCookie += "=" + optionValue;
+      }
+    }
+  
+    document.cookie = updatedCookie;
+  }
 
   /**
    * Insert DOM element newNode after referenceNode
