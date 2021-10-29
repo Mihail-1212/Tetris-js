@@ -8,6 +8,9 @@
   const TETRIS_WIDTH = 320;   // 10 squares
   const TETRIS_HEIGHT = 640;  // 20 squares
 
+  const TETRIS_INFO_WIDTH = 192; // 6 squares
+  const TETRIS_INFO_HEIGHT = 320; // 10 squares
+
   const SQUARE_SIZE = 32;
 
   const FRAME_NUM_UPDATE = 35;
@@ -97,6 +100,10 @@
 
     this.rAF = null;
 
+    this.canvasTetrisInfo = null;
+
+    this.canvasTetrisInfoContext = null;
+
     this.frameNum = 0;
 
     this.playField = new Array(TETRIS_HEIGHT / SQUARE_SIZE);
@@ -108,6 +115,7 @@
     this.init();
   }
 
+
   /**
    * Initial method
    */
@@ -116,19 +124,94 @@
     this.canvas.setAttribute("width", TETRIS_WIDTH);
     this.canvas.setAttribute("height", TETRIS_HEIGHT);
 
-    // TODO: Create new canvas - score window and next tetramino window
-
+    this.initCanvasTetrisInfo();
+    
     this.setEventListeners();
   }
+  
+
+  Tetris.prototype.initCanvasTetrisInfo = function() {
+    this.canvasTetrisInfo = document.createElement("CANVAS");
+    insertAfter(this.canvasTetrisInfo, this.canvas);
+    
+    // Set style of canvas
+    this.canvasTetrisInfo.classList.add("tetris-info");
+    this.canvasTetrisInfo.setAttribute("width", TETRIS_INFO_WIDTH);
+    this.canvasTetrisInfo.setAttribute("height", TETRIS_INFO_HEIGHT);
+    this.canvasTetrisInfo.style.marginLeft = (TETRIS_WIDTH / 2 + 20) + "px";
+    this.canvasTetrisInfo.style.marginTop = ((-1) * (TETRIS_HEIGHT / 2 )) + "px";
+
+    // Get canvas context
+    if (this.canvasTetrisInfo.getContext) {
+      this.canvasTetrisInfoContext = this.canvasTetrisInfo.getContext('2d');
+    } else {
+      throw new Error("Canvas DOM object have no context");
+    }
+
+    // Canvas filling
+    this.renderCanvasTetrisInfo();
+  }
+
+
+  Tetris.prototype.renderCanvasTetrisInfo = function(cb) {
+    // Clear
+    this.canvasTetrisInfoContext.clearRect(0, 0, this.canvasTetrisInfo.width, this.canvasTetrisInfo.height);
+
+    // Render title
+    this.renderCanvasTetrisInfoTitle();
+
+    // Render next tetramino object
+    this.renderCanvasTetrisInfoNextTetramino();
+  }
+
+
+  Tetris.prototype.renderCanvasTetrisInfoTitle = function() {
+    var title = "TETRIS INFO";
+
+    this.canvasTetrisInfoContext.globalAlpha = 1;
+    this.canvasTetrisInfoContext.fillStyle = 'white';
+    this.canvasTetrisInfoContext.textAlign = 'center';
+    this.canvasTetrisInfoContext.textBaseline = 'middle';
+
+    var fontSize = 14;
+
+    this.canvasTetrisInfoContext.font = `${fontSize}px serif`;
+    this.canvasTetrisInfoContext.fillText(title, this.canvasTetrisInfo.width / 2, fontSize);
+  }
+
+  Tetris.prototype.renderCanvasTetrisInfoNextTetramino = function() {
+    if (this.nextTetraminoType) {
+      var grid = TETRAMINO_GRID[this.nextTetraminoType];
+      var color = TETRAMINO_COLOR[this.nextTetraminoType];
+
+      this.canvasTetrisInfoContext.fillStyle = color;
+
+      var collumnOffset = Math.floor(TETRIS_INFO_WIDTH / SQUARE_SIZE / 2 - grid.length / 2);
+
+      for (let row=0; row<grid.length; row++) {
+        var rowItem = grid[row];
+        for (let column=0; column<rowItem.length; column++) {
+          var item = rowItem[column];
+          if (item == 1) {
+            this.canvasTetrisInfoContext.fillRect((column + collumnOffset)*SQUARE_SIZE, (row + 2)*SQUARE_SIZE, SQUARE_SIZE - 1, SQUARE_SIZE - 1);
+          }
+        }
+      }
+    }
+  }
+
 
   Tetris.prototype.startGame = function() {
     // Start loop
     this.rAF = requestAnimationFrame(this.mainLoop.bind(this));
   }
 
+  // Tetris.prototype.renderNext
+
   // Tetris.prototype.resumeGame = function() {
     
   // }
+
 
   /**
    * Main loop cyclus of game
@@ -137,7 +220,7 @@
     this.rAF = requestAnimationFrame(this.mainLoop.bind(this));
 
     // Clear
-    this.clearArea();
+    this.canvasContext.clearRect(0, 0, this.canvas.width, this.canvas.height);
     
     // Render play field
     this.renderPlayField()
@@ -161,7 +244,10 @@
 
     // Update playfield
     this.playFieldUpdate();
+
+    this.renderCanvasTetrisInfo();
   } 
+
 
   Tetris.prototype.updateCurrentTetraminoObj = function(newTetraminoObj) {
     if (this.isValidTetramino(newTetraminoObj)) {
@@ -176,6 +262,7 @@
     }
   }
 
+
   Tetris.prototype.renderPlayField = function() {
     for (let i=0; i < this.playField.length; i++) {
       var row = this.playField[i];
@@ -189,6 +276,7 @@
     }
   }
 
+
   Tetris.prototype.playFieldUpdate = function() {
     for (let i=0; i < this.playField.length; i++) {
       var row = this.playField[i];
@@ -200,6 +288,7 @@
       }
     }
   }
+
 
   Tetris.prototype.addTetraminoToPlayField = function(tetraminoObj) {
     var grid = this.getTetraminoGrid(tetraminoObj);
@@ -225,6 +314,7 @@
     }
     return true;
   }
+
 
   /**
    * 
@@ -265,9 +355,6 @@
     return true;
   }
 
-  Tetris.prototype.clearArea = function() {
-    this.canvasContext.clearRect(0, 0, this.canvas.width, this.canvas.height);
-  }
 
   Tetris.prototype.setCurrentGenerateNextTetramino = function() {
     this.currentTetramino = {
@@ -280,11 +367,13 @@
     this.nextTetraminoType = this.generateAndReturnNextTetraminoType();
   }
 
+
   Tetris.prototype.stopGame = function() {
     cancelAnimationFrame(this.rAF);
 
     this.gameOver = true;
   }
+
 
   Tetris.prototype.showEndGameMessage = function() {
     this.stopGame();
@@ -305,6 +394,7 @@
     this.canvasContext.font = "36px serif";
     this.canvasContext.fillText(finalMessage, this.canvas.width / 2, this.canvas.height / 2);
   }
+
 
   Tetris.prototype.renderTatraminoObj = function(tetraminoObj) {
     if (tetraminoObj == undefined) {
@@ -402,6 +492,16 @@
   ///
   /// Funcs
   ///
+
+  /**
+   * Insert DOM element newNode after referenceNode
+   * https://stackoverflow.com/a/4793630
+   * @param {DOM} newNode 
+   * @param {DOM} referenceNode 
+   */
+  function insertAfter(newNode, referenceNode) {
+    referenceNode.parentNode.insertBefore(newNode, referenceNode.nextSibling);
+  }
 
   /**
    * Rotate matrix 90 deg
