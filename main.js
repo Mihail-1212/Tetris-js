@@ -116,12 +116,14 @@
     this.canvas.setAttribute("width", TETRIS_WIDTH);
     this.canvas.setAttribute("height", TETRIS_HEIGHT);
 
+    // TODO: Create new canvas - score window and next tetramino window
+
     this.setEventListeners();
   }
 
   Tetris.prototype.startGame = function() {
     // Start loop
-    this.rAF = window.requestAnimationFrame(this.mainLoop.bind(this));
+    this.rAF = requestAnimationFrame(this.mainLoop.bind(this));
   }
 
   // Tetris.prototype.resumeGame = function() {
@@ -132,12 +134,49 @@
    * Main loop cyclus of game
    */
   Tetris.prototype.mainLoop = function() {
-    this.rAF = window.requestAnimationFrame(this.mainLoop.bind(this));
+    this.rAF = requestAnimationFrame(this.mainLoop.bind(this));
 
     // Clear
-    this.canvasContext.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.clearArea();
+    
+    // Render play field
+    this.renderPlayField()
 
-    // Render saved squares
+    if (this.currentTetramino == null) {
+      this.setCurrentGenerateNextTetramino();
+    }
+
+    // Render current tetramino
+    if (this.currentTetramino) {
+      var newTetramino = Object.assign({}, this.currentTetramino); 
+      newTetramino.row++;
+      
+      if (++this.frameNum > FRAME_NUM_UPDATE) {
+        this.frameNum = 0;
+        this.updateCurrentTetraminoObj(newTetramino);
+      }
+
+      this.renderTatraminoObj(this.currentTetramino);
+    }
+
+    // Update playfield
+    this.playFieldUpdate();
+  } 
+
+  Tetris.prototype.updateCurrentTetraminoObj = function(newTetraminoObj) {
+    if (this.isValidTetramino(newTetraminoObj)) {
+      this.currentTetramino = newTetraminoObj;
+    } else {
+      // if cannot add tetramino to pay field => game over
+      var copyTetraminoObj = Object.assign({}, this.currentTetramino);
+      this.currentTetramino = null;
+      if (!this.addTetraminoToPlayField(copyTetraminoObj)) {
+        this.showEndGameMessage();
+      }
+    }
+  }
+
+  Tetris.prototype.renderPlayField = function() {
     for (let i=0; i < this.playField.length; i++) {
       var row = this.playField[i];
       for (let j=0; j < row.length; j++) {
@@ -148,27 +187,19 @@
         }
       }
     }
+  }
 
-    if (this.currentTetramino == null) {
-      this.setCurrentGenerateNextTetramino();
-    }
+  Tetris.prototype.playFieldUpdate = function() {
+    for (let i=0; i < this.playField.length; i++) {
+      var row = this.playField[i];
 
-    if (this.currentTetramino) {
-      var newTetramino = Object.assign({}, this.currentTetramino); 
-      newTetramino.row = newTetramino.row + 1;
-      
-      if (!this.isValidTetramino(newTetramino)) {
-        this.addTetraminoToPlayField(this.currentTetramino);
-        this.currentTetramino = null;
-      } else if (++this.frameNum > FRAME_NUM_UPDATE) {
-        this.frameNum = 0;
-        this.currentTetramino = newTetramino;
+      if (row.every(color => color != 0)) {
+        // Delete this row and offset earlest arrays to this
+        this.playField.splice(i, 1);
+        this.playField.unshift(new Array(TETRIS_WIDTH / SQUARE_SIZE).fill(0));
       }
-
-      this.renderTatraminoObj(this.currentTetramino);
     }
-  } 
-
+  }
 
   Tetris.prototype.addTetraminoToPlayField = function(tetraminoObj) {
     var grid = this.getTetraminoGrid(tetraminoObj);
@@ -182,12 +213,17 @@
           var gridRow = i + tetraminoObj.row;
           var gridColumm = j + tetraminoObj.column;
 
-          this.playField[gridRow][gridColumm] = TETRAMINO_COLOR[tetraminoObj.type];
+          // If grid row not exist
+          try {
+            this.playField[gridRow][gridColumm] = TETRAMINO_COLOR[tetraminoObj.type];
+          } catch(err) {
+            return false;
+          }
+          
         }
       }
     }
-
-    console.log(this.playField);
+    return true;
   }
 
   /**
@@ -229,15 +265,45 @@
     return true;
   }
 
+  Tetris.prototype.clearArea = function() {
+    this.canvasContext.clearRect(0, 0, this.canvas.width, this.canvas.height);
+  }
+
   Tetris.prototype.setCurrentGenerateNextTetramino = function() {
     this.currentTetramino = {
       row: -2,
-      column: Math.floor(TETRIS_WIDTH / SQUARE_SIZE / 2) - 1,
+      column: Math.round(TETRIS_WIDTH / SQUARE_SIZE / 2) - Math.round(TETRAMINO_GRID[this.nextTetraminoType].length / 2),
       type: this.nextTetraminoType,
       rotationState: 0,
     };
 
     this.nextTetraminoType = this.generateAndReturnNextTetraminoType();
+  }
+
+  Tetris.prototype.stopGame = function() {
+    cancelAnimationFrame(this.rAF);
+
+    this.gameOver = true;
+  }
+
+  Tetris.prototype.showEndGameMessage = function() {
+    this.stopGame();
+
+    // Black rectangle in center
+    this.canvasContext.fillStyle = 'black';
+    this.canvasContext.globalAlpha = 0.75;
+    this.canvasContext.fillRect(0, this.canvas.height / 2 - 30, this.canvas.width, 60);
+    
+    // Game over message
+    var finalMessage = "GAME OVER!";
+
+    this.canvasContext.globalAlpha = 1;
+    this.canvasContext.fillStyle = 'white';
+    this.canvasContext.textAlign = 'center';
+    this.canvasContext.textBaseline = 'middle';
+
+    this.canvasContext.font = "36px serif";
+    this.canvasContext.fillText(finalMessage, this.canvas.width / 2, this.canvas.height / 2);
   }
 
   Tetris.prototype.renderTatraminoObj = function(tetraminoObj) {
@@ -252,6 +318,9 @@
       for(let j=0; j < row.length; j++) {
         var item = row[j];
         if (item == 1) {
+          var newTetramino = Object.assign({}, tetraminoObj);
+          newTetramino.row++;
+
           this.renderSquare(i + tetraminoObj.row, j + tetraminoObj.column, color);
         }
       }
@@ -294,13 +363,14 @@
 
       // up arrow
       if (this.currentTetramino && this.isValidTetramino(newTetramino)) {
-        this.currentTetramino = newTetramino;;
+        this.updateCurrentTetraminoObj(newTetramino);
       }
     }
     if (e.keyCode == '40') {
         // down arrow
+        newTetramino.row++;
         if (this.currentTetramino) {
-          this.currentTetramino.row++;
+          this.updateCurrentTetraminoObj(newTetramino);
         }
     }
 
@@ -308,14 +378,14 @@
       // left arrow
       newTetramino.column--;
       if (this.currentTetramino && this.isValidTetramino(newTetramino)) {
-        this.currentTetramino.column--;
+        this.updateCurrentTetraminoObj(newTetramino);
       }
     }
     if (e.keyCode == '39') {
         // right arrow
         newTetramino.column++;
         if (this.currentTetramino && this.isValidTetramino(newTetramino)) {
-          this.currentTetramino = newTetramino;
+          this.updateCurrentTetraminoObj(newTetramino);
         }
     }
   }
