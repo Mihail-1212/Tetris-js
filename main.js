@@ -15,6 +15,11 @@
 
   const FRAME_NUM_UPDATE = 35;
 
+  const STATE_READY_TO_START = 'STATE_READY_TO_START',
+    STATE_RESUME = 'TETRIS_RESUME',
+    STATE_PAUSE = 'STATE_PAUSE',
+    STATE_GAME_OVER = 'STATE_GAME_OVER';
+
   const TETRAMINO_GRID = {
     "I": [
       [0, 0, 0, 0],
@@ -96,7 +101,7 @@
 
     this.nextTetraminoType = this.generateAndReturnNextTetraminoType();;
 
-    this.gameOver = false;  // flag end of the game | no pause
+    this.gameState = STATE_READY_TO_START;  // enum
 
     this.rAF = null;
 
@@ -105,6 +110,8 @@
     this.canvasTetrisInfoContext = null;
 
     this.frameNum = 0;
+
+    this.scoreCount = 0;
 
     this.playField = new Array(TETRIS_HEIGHT / SQUARE_SIZE);
 
@@ -162,8 +169,23 @@
 
     // Render next tetramino object
     this.renderCanvasTetrisInfoNextTetramino();
+
+    // Render score count
+    this.renderCanvasTetrisInfoScore();
   }
 
+  Tetris.prototype.renderCanvasTetrisInfoScore = function() {
+    this.canvasTetrisInfoContext.globalAlpha = 1;
+    this.canvasTetrisInfoContext.fillStyle = 'white';
+    this.canvasTetrisInfoContext.textAlign = 'left';
+    this.canvasTetrisInfoContext.textBaseline = 'middle';
+
+    var fontSize = 14;
+
+    this.canvasTetrisInfoContext.font = `${fontSize}px serif`;
+
+    this.canvasTetrisInfoContext.fillText(`Score: ${this.scoreCount}`, SQUARE_SIZE, 6*SQUARE_SIZE); // 6 row always empty
+  }
 
   Tetris.prototype.renderCanvasTetrisInfoTitle = function() {
     var title = "TETRIS INFO";
@@ -285,6 +307,7 @@
         // Delete this row and offset earlest arrays to this
         this.playField.splice(i, 1);
         this.playField.unshift(new Array(TETRIS_WIDTH / SQUARE_SIZE).fill(0));
+        this.scoreCount++;
       }
     }
   }
@@ -367,16 +390,23 @@
     this.nextTetraminoType = this.generateAndReturnNextTetraminoType();
   }
 
-
-  Tetris.prototype.stopGame = function() {
+  Tetris.prototype.pauseGame = function() {
     cancelAnimationFrame(this.rAF);
 
-    this.gameOver = true;
+    this.gameState = STATE_PAUSE;
+  }
+
+  Tetris.prototype.endGame = function() {
+    cancelAnimationFrame(this.rAF);
+
+    this.gameState = STATE_GAME_OVER;
+
+    this.renderTatraminoObj(this.currentTetramino);
   }
 
 
   Tetris.prototype.showEndGameMessage = function() {
-    this.stopGame();
+    this.endGame();
 
     // Black rectangle in center
     this.canvasContext.fillStyle = 'black';
